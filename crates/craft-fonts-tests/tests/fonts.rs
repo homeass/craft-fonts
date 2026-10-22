@@ -230,7 +230,7 @@ fn georgian_fonts_cover_georgian_text() {
 
 /// Text every Korean font must cover: leading Hangul syllables of every initial, common UI
 /// words, modern jamo (compatibility block), Korean punctuation, full-width forms and basic
-/// Latin (UI strings mix them). 학교안심 나무 holds the whole U+AC00–U+D7A3 syllable block.
+/// Latin (UI strings mix them). Every 학교안심 face holds the whole U+AC00–U+D7A3 syllable block.
 #[test]
 fn korean_fonts_cover_korean_text() {
     covers(
@@ -243,6 +243,29 @@ fn korean_fonts_cover_korean_text() {
             "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789",
         ),
     );
+}
+
+/// Every Korean font carries the complete U+AC00–U+D7A3 Hangul syllable block (11 172
+/// syllables), so no Korean text renders as tofu regardless of which face is selected.
+#[test]
+fn korean_fonts_cover_the_full_hangul_syllable_block() {
+    for f in for_script("Kore") {
+        let data = bytes(f);
+        let font = FontRef::new(&data).unwrap_or_else(|e| panic!("{}: {e}", f.file));
+        let charmap = font.charmap();
+        let missing: Vec<u32> = (0u32..11_172)
+            .filter(|i| charmap.map(char::from_u32(0xAC00 + i).unwrap()).is_none())
+            .map(|i| 0xAC00 + i)
+            .collect();
+        assert!(
+            missing.is_empty(),
+            "{} {} misses {} of 11 172 syllables (first: {:?})",
+            f.family,
+            f.style,
+            missing.len(),
+            missing.first().map(|&c| char::from_u32(c).unwrap())
+        );
+    }
 }
 
 #[test]
