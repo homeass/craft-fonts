@@ -227,3 +227,60 @@ fn georgian_fonts_cover_georgian_text() {
         ),
     );
 }
+
+/// Text every Korean font must cover: leading Hangul syllables of every initial, common UI
+/// words, modern jamo (compatibility block), Korean punctuation, full-width forms and basic
+/// Latin (UI strings mix them). 학교안심 나무 holds the whole U+AC00–U+D7A3 syllable block.
+#[test]
+fn korean_fonts_cover_korean_text() {
+    covers(
+        "Kore",
+        concat!(
+            "가나다라마바사아자차카타파하거너더러머버서어저처커터퍼허고노도로모보소오조코토포호구누두루무부수우주추쿠투푸후허",
+            "한국어한글문서편집저장열기검색인쇄취소삭제선택확인안녕하세요테스트나무",
+            "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ",
+            "·…！？（）「」§，．",
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789",
+        ),
+    );
+}
+
+#[test]
+fn korean_glyphs_have_outlines() {
+    use skrifa::instance::{LocationRef, Size};
+    use skrifa::outline::{DrawSettings, OutlinePen};
+    struct Count(usize);
+    impl OutlinePen for Count {
+        fn move_to(&mut self, _: f32, _: f32) {}
+        fn line_to(&mut self, _: f32, _: f32) {
+            self.0 += 1;
+        }
+        fn quad_to(&mut self, _: f32, _: f32, _: f32, _: f32) {
+            self.0 += 1;
+        }
+        fn curve_to(&mut self, _: f32, _: f32, _: f32, _: f32, _: f32, _: f32) {}
+        fn close(&mut self) {}
+    }
+    for f in for_script("Kore") {
+        let data = bytes(f);
+        let font = FontRef::new(&data).unwrap_or_else(|e| panic!("{}: {e}", f.file));
+        let outlines = font.outline_glyphs();
+        for c in ['한', '글', 'ㅏ', 'A'] {
+            let gid = font
+                .charmap()
+                .map(c)
+                .unwrap_or_else(|| panic!("{}: no glyph for {c}", f.file));
+            let glyph = outlines
+                .get(gid)
+                .unwrap_or_else(|| panic!("{}: no outline for {c}", f.file));
+            let mut pen = Count(0);
+            glyph
+                .draw(
+                    DrawSettings::unhinted(Size::new(64.0), LocationRef::default()),
+                    &mut pen,
+                )
+                .unwrap_or_else(|e| panic!("{}: drawing {c}: {e}", f.file));
+            assert!(pen.0 > 0, "{} {}: {c} draws nothing", f.family, f.style);
+        }
+    }
+}
